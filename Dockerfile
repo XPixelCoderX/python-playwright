@@ -1,42 +1,46 @@
 
-name: Build and Publish Python Playwright
+FROM python:3.13-slim-bookworm
 
-on:
-  push:
-    branches:
-      - main
-  workflow_dispatch:
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
-permissions:
-  contents: read
-  packages: write
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    libnspr4 \
+    libnss3 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libatspi2.0-0 \
+    libx11-6 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxext6 \
+    libxfixes3 \
+    libxrandr2 \
+    libgbm1 \
+    libxcb1 \
+    libxkbcommon0 \
+    libasound2 \
+    libpango-1.0-0 \
+    libcairo2 \
+    libdbus-1-3 \
+    libdrm2 \
+    libxshmfence1 \
+    libglib2.0-0 \
+    libgdk-pixbuf-2.0-0 \
+    fonts-liberation \
+    && rm -rf /var/lib/apt/lists/*
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
+RUN python -m pip install --no-cache-dir \
+    playwright==1.63.0 \
+    requests \
+    flask \
+    protobuf \
+    cryptography \
+    && python -m playwright install chromium --only-shell
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+RUN python -c "from cryptography.hazmat.primitives import hashes, serialization; print('cryptography installed successfully')"
 
-      - name: Set lowercase image name
-        shell: bash
-        run: |
-          echo "IMAGE_NAME=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/python-playwright-crypto:3.13-crypto" >> "$GITHUB_ENV"
+WORKDIR /home/container
 
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build and publish Docker image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: true
-          tags: ${{ env.IMAGE_NAME }}
+CMD ["python", "server.py"]
